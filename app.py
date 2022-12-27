@@ -18,25 +18,29 @@ class Book(db.Model):
     Author = db.Column(db.String(50))
     bYear = db.Column(db.Integer)
     bType = db.Column(db.Integer)
+    active = db.Column(db.Boolean, default=True)
     book = db.relationship('Loan', backref='book')
 
-    def __init__(self, bName, Author, bYear, bType):
+    def __init__(self, bName, Author, bYear, bType, active):
         self.bName = bName
         self.Author = Author
         self.bYear = bYear
         self.bType = bType
+        self.active = active
 
 class Customer(db.Model):
     id = db.Column( db.Integer, primary_key = True)
     cName = db.Column(db.String(50))
     City = db.Column(db.String(50))
     age = db.Column(db.Integer)
+    active = db.Column(db.Boolean, default=True)
     customer = db.relationship('Loan', backref='customer')
 
-    def __init__(self, cName, City, age):
+    def __init__(self, cName, City, age, active):
         self.cName = cName
         self.City = City
         self.age = age
+        self.active = active
 
 class Loan(db.Model):
     id = db.Column( db.Integer, primary_key = True)
@@ -56,14 +60,14 @@ class Loan(db.Model):
 
 # ///////////////////////////BOOKS//////////////////////////////////
 @app.route('/books/', methods=['GET','POST'])
-@app.route('/books/<id>', methods=['GET','DELETE'])
+@app.route('/books/<id>', methods=['GET','PUT'])
 def book_crud(id=-1):
     # GET all
     if request.method == 'GET' and id== -1:
         result = []
         for b in Book.query.all():
             result.append({
-                "b_id":b.id,"bName":b.bName,'auther':b.Author,'bYear':b.bYear,'bType':b.bType
+                "b_id":b.id,"bName":b.bName,'auther':b.Author,'bYear':b.bYear,'bType':b.bType,"active":b.active
                 })
         return json.dumps(result)
     # GET Id
@@ -71,7 +75,7 @@ def book_crud(id=-1):
         result = Book.query.get(id)
         showMe = {
             "b_id":result.id,"Name":result.bName,'auther':result.Author,
-            'bYear':result.bYear,'bType':result.bType
+            'bYear':result.bYear,'bType':result.bType,"active":result.active
             }
         return showMe
     if request.method == 'POST':
@@ -80,15 +84,18 @@ def book_crud(id=-1):
         auther = request_data['auther']
         bYear = request_data['bYear']
         bType = request_data['bType']
-        newBook = Book(bName,auther,bYear,bType)
+        active=True
+        newBook = Book(bName,auther,bYear,bType,active)
         db.session.add(newBook)
         db.session.commit()
         return {"msg":f"A New Book was registered : {bName}"}
-    if request.method == 'DELETE':
+    if request.method == 'PUT': #making the book inactive
         delBook = Book.query.get(id)
-        db.session.delete(delBook)
+        request_data = request.get_json()
+        u_active = request_data["active"]
+        delBook.active = u_active
         db.session.commit()
-        return []
+        return {"msg":"Book has been set Inactive"}
 
 # 1: add customer //DONE
 # 2: get all customers //DONE
@@ -96,27 +103,30 @@ def book_crud(id=-1):
 
 # ///////////////////////////Customers//////////////////////////////////
 @app.route('/customers/', methods=['GET','POST'])
-@app.route('/customers/<id>', methods=['DELETE'])
+@app.route('/customers/<id>', methods=['PUT'])
 def customer_crud(id=-1):
     if request.method == 'POST':
         request_data = request.get_json()
         cName = request_data["cName"]
         City = request_data["City"]
         age = request_data["age"]
-        newCustomer = Customer(cName,City,age)
+        active=True
+        newCustomer = Customer(cName,City,age,active)
         db.session.add(newCustomer)
         db.session.commit()
         return {"msg":f"A New Customer was registered : {cName}"}
     if request.method == 'GET':
         result = []
         for c in Customer.query.all():
-            result.append({"c_id":c.id,"cName":c.cName,'city':c.City,'age':c.age})
+            result.append({"c_id":c.id,"cName":c.cName,'city':c.City,'age':c.age,"active":c.active})
         return json.dumps(result)
-    if request.method == 'DELETE':
+    if request.method == 'PUT':
         delCustomer = Customer.query.get(id)
-        db.session.delete(delCustomer)
+        request_data = request.get_json()
+        u_active = request_data["active"]
+        delCustomer.active = u_active
         db.session.commit()
-        return {"msg":f"customer: {delCustomer} has been Deleted"}
+        return {"msg":"Customer has been set Inactive"}
 
 # ///////////////////////////Loans//////////////////////////////////
 
@@ -150,7 +160,7 @@ def loan_crud(id=id):
                 "returnDate":l.returnDate.strftime("%Y-%m-%d"),"active":l.active
                 })
         return json.dumps(result)
-    if request.method == 'PUT':
+    if request.method == 'PUT': # making the loan inactive
         upd_loan = Loan.query.get(id)
         request_data = request.get_json()
         u_active = request_data["active"]
